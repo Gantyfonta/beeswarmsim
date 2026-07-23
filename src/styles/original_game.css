@@ -1,4 +1,6 @@
-body{
+
+    
+    body{
         
         overflow:hidden;
         margin:0;
@@ -50,14 +52,16 @@ body{
     }
     
     #gl-canvas,#tex-canvas{
+        
         display:none;
 	}
 	
 	#ui-canvas{
+        
         position:fixed;
         left:0;
         top:0;
-        z-index:-10;
+        z-index:-3;
 	}
 	
 	div::-webkit-scrollbar{
@@ -241,3 +245,4 @@ body{
     #gearInfoList{
         display:inline;
     }
+    
