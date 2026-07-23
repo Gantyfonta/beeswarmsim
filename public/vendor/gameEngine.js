@@ -426,7 +426,7 @@ function BeeSwarmSimulator(DATA){
 
 
     let glCanvas=document.getElementById('gl-canvas'); glCanvas.style.display='block'; glCanvas.style.position='fixed'; glCanvas.style.left='0'; glCanvas.style.top='0'; glCanvas.style.zIndex='-4';
-    let gl=glCanvas.getContext('webgl2',{antialias:true})
+    let gl=glCanvas.getContext('webgl2',{antialias:true, preserveDrawingBuffer:true})
 
     let uiCanvas=document.getElementById('ui-canvas')
     let ctx=uiCanvas.getContext('2d')
