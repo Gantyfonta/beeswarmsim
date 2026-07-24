@@ -2237,7 +2237,7 @@
 
     </div>
         
-    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:-2;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;'>
+    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:10;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;'>
         
         <div id='noItemsMessage' style='text-align:center;font-size:17px;color:rgb(0,0,0,0.5)'><br>(You have no items)</div>
 
@@ -4192,19 +4192,69 @@
             
         </svg>
 
+        <svg id='enchantedCell' style='width:200px;height:70px;cursor:pointer;border-radius:5px'>
+            <rect width='200' height='70' fill='rgb(255,255,255)'></rect>
+            <rect width='70' height='70' fill='rgb(225,225,225)'></rect>
+            <text x='132' y='18' style='font-family:trebuchet ms;font-size:15px;' fill='rgb(0,0,0)' text-anchor='middle'>Enchanted Cell</text>
+            <text x='133' y='36' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>Applies an enchantment</text>
+            <text x='133' y='50' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>effect to one of your</text>
+            <text x='133' y='64' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>equipped items.</text>
+            <text id='enchantedCell_amount' x='67' y='67' style='font-family:calibri;font-size:14px;' fill='rgb(0,0,0)' text-anchor='end'></text>
+            <g transform='translate(35,35) scale(0.9,0.9)'>
+                <polygon points='0,-20 17,-10 17,10 0,20 -17,10 -17,-10' fill='rgb(160,80,255)' stroke='black' stroke-width='2'></polygon>
+                <polygon points='0,-14 12,-7 12,7 0,14 -12,7 -12,-7' fill='rgb(210,150,255)' stroke='rgb(100,20,200)' stroke-width='1.5'></polygon>
+                <circle cx='0' cy='0' r='4' fill='white'></circle>
+            </g>
+        </svg>
+
+        <svg id='enchantedWaxedCell' style='width:200px;height:70px;cursor:pointer;border-radius:5px'>
+            <rect width='200' height='70' fill='rgb(255,255,255)'></rect>
+            <rect width='70' height='70' fill='rgb(225,225,225)'></rect>
+            <text x='132' y='18' style='font-family:trebuchet ms;font-size:14.5px;' fill='rgb(0,0,0)' text-anchor='middle'>Enchanted Waxed Cell</text>
+            <text x='133' y='36' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>Applies a waxed</text>
+            <text x='133' y='50' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>enchantment effect to</text>
+            <text x='133' y='64' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>an equipped item.</text>
+            <text id='enchantedWaxedCell_amount' x='67' y='67' style='font-family:calibri;font-size:14px;' fill='rgb(0,0,0)' text-anchor='end'></text>
+            <g transform='translate(35,35) scale(0.9,0.9)'>
+                <polygon points='0,-20 17,-10 17,10 0,20 -17,10 -17,-10' fill='rgb(255,160,30)' stroke='black' stroke-width='2'></polygon>
+                <polygon points='0,-14 12,-7 12,7 0,14 -12,7 -12,-7' fill='rgb(255,210,80)' stroke='rgb(180,90,0)' stroke-width='1.5'></polygon>
+                <path d='M-8,-8 C-2,-14 6,-14 10,-8 C6,-4 -2,-4 -8,-8' fill='rgba(255,255,255,0.7)'></path>
+                <circle cx='0' cy='2' r='4' fill='rgb(160,80,255)'></circle>
+            </g>
+        </svg>
+
+        <svg id='enchantedSwarmCell' style='width:200px;height:70px;cursor:pointer;border-radius:5px'>
+            <rect width='200' height='70' fill='rgb(255,255,255)'></rect>
+            <rect width='70' height='70' fill='rgb(225,225,225)'></rect>
+            <text x='132' y='18' style='font-family:trebuchet ms;font-size:14.5px;' fill='rgb(0,0,0)' text-anchor='middle'>Enchanted Swarm Cell</text>
+            <text x='133' y='36' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>Applies a swarm</text>
+            <text x='133' y='50' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>enchantment effect to</text>
+            <text x='133' y='64' style='font-family:trebuchet ms;font-size:10.5px;' fill='rgb(0,0,0)' text-anchor='middle'>an equipped item.</text>
+            <text id='enchantedSwarmCell_amount' x='67' y='67' style='font-family:calibri;font-size:14px;' fill='rgb(0,0,0)' text-anchor='end'></text>
+            <g transform='translate(35,35) scale(0.9,0.9)'>
+                <polygon points='0,-20 17,-10 17,10 0,20 -17,10 -17,-10' fill='rgb(20,220,120)' stroke='black' stroke-width='2'></polygon>
+                <polygon points='0,-14 12,-7 12,7 0,14 -12,7 -12,-7' fill='rgb(120,255,180)' stroke='rgb(0,140,60)' stroke-width='1.5'></polygon>
+                <circle cx='-5' cy='-4' r='2.5' fill='black'></circle>
+                <circle cx='5' cy='-4' r='2.5' fill='black'></circle>
+                <circle cx='0' cy='5' r='3.5' fill='rgb(255,215,0)'></circle>
+            </g>
+        </svg>
+
     </div>
 
-    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:-2;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;font-size:13px;'></div>
+    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:10;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;font-size:13px;'></div>
 
-    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:-2;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;font-size:13px;'></div>
+    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:10;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;font-size:13px;'></div>
 
-    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:-2;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;font-size:13px;'>
+    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:10;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;font-size:13px;'>
 
         <div style="cursor:pointer;margin-top:5px;background-color:rgb(170,170,170);font-size:23px;border-radius:3px;color:rgb(0,0,0);text-align:center" id="saveGame">Save Game</div>
         
         <div style="cursor:pointer;margin-top:5px;background-color:rgb(170,170,170);font-size:23px;border-radius:3px;color:rgb(0,0,0);text-align:center" id="resetChar">Respawn</div>
         
-        <div style="cursor:pointer;margin-top:10px;background-color:rgb(170,170,170);font-size:15px;border-radius:3px;" id="togglePollenText"></div>
+        <div style="margin-top:8px;background-color:rgb(245,235,160);font-size:14px;border-radius:3px;padding:4px;color:rgb(0,0,0);text-align:center;font-weight:bold;border:1px solid rgb(200,190,110);" id="playerCoordsDisplay">Coordinates: X: 0 | Y: 0 | Z: 0</div>
+        
+        <div style="cursor:pointer;margin-top:8px;background-color:rgb(170,170,170);font-size:15px;border-radius:3px;" id="togglePollenText"></div>
         <div style="cursor:pointer;margin-top:5px;background-color:rgb(170,170,170);font-size:15px;border-radius:3px;" id="togglePollenAbv"></div>
         <div style="cursor:pointer;margin-top:5px;background-color:rgb(170,170,170);font-size:15px;border-radius:3px;" id="toggleLowGraph"></div>
         <div style="margin-top:5px;background-color:rgb(170,170,170);font-size:15px;border-radius:3px;">Sensitivity: <input id='sensitivitySetting' type='number' value='10' min='0' max='100' style='background-color:rgb(255,255,255,0.5);padding-left:4px;width:40px;transform:scale(0.8,0.8);font-family:comic sans ms'></input></div>
@@ -4218,15 +4268,15 @@
 
     </div>
 
-    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:-2;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;font-size:13px;'></div>
+    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:10;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(195,195,195,0.9);margin-top:5px;display:none;padding:3px;font-size:13px;'></div>
 
-    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:-2;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(0,255,0,0.5);margin-top:5px;display:none;padding:3px;padding-top:0px;font-size:13px;'></div>
+    <div class='uiPage' style='pointer-events:auto;margin:0px;z-index:10;overflow-y:auto;overflow-x:hidden;width:205px;height:455px;background-color:rgba(0,255,0,0.5);margin-top:5px;display:none;padding:3px;padding-top:0px;font-size:13px;'></div>
 
 </div>
 
-<div id='honeyAndPollenAmount' style='position:fixed;margin:0px;top:0px;left:50%;width:600px;max-width:98vw;z-index:0;transform:translate(-50%,0px);'>
+<div id='honeyAndPollenAmount' style='position:fixed;margin:0px;top:0px;left:51.5%;width:600px;z-index:10;transform:translate(-50%,0px);'>
     
-    <svg viewBox='0 0 600 35' style='margin:0px;width:100%;height:100%;display:block;'>
+    <svg style='margin:0px;width:600px;height:35px;'>
         
         <rect x='5' width='510' height='30' fill='rgb(210,210,210)' rx='5'></rect>
         <rect x='313' y='3' width='196' height='23' fill='rgb(120,120,120)' rx='2'></rect>
@@ -4449,7 +4499,7 @@
     
 </div>
 
-<div id='roboQuestMenu' style='position:fixed;width:200px;height:250px;z-index:-3;left:-5px;top:50%;transform:translate(0%,-50%);background-color:rgb(0,140,0);color:rgb(255,255,255);font-size:21px;text-align:center;border-radius:9px;display:none;border:4px solid rgb(100,100,100)'>
+<div id='roboQuestMenu' style='position:fixed;width:200px;height:250px;z-index:10;left:-5px;top:50%;transform:translate(0%,-50%);background-color:rgb(0,140,0);color:rgb(255,255,255);font-size:21px;text-align:center;border-radius:9px;display:none;border:4px solid rgb(100,100,100)'>
         
     <div id='roboQuestSeparator'></div>
 
@@ -4460,6 +4510,32 @@
 <div id='stickbugMenu' style='position:fixed;width:200px;height:200px;z-index:3;right:-5px;top:50%;transform:translate(0%,-50%);background-color:rgb(120,70,45,0.7);color:rgb(255,255,255);font-size:21px;text-align:center;display:none'>
         <div style='position:absolute;width:100%;height:30px;background-color:rgb(120,70,45);color:white;font-size:18px;font-family:trebuchet ms;padding-top:8px'>Stick Bug Challenge</div>
         <div style='margin-top:55px;margin-left:15px;color:white;font-size:20px;font-family:trebuchet ms;text-align:left' id='stickbugTime'></div>
+
+<div id='enchantMenu' style='position:fixed;width:540px;max-width:95vw;height:540px;max-height:92vh;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg, #180e29, #2b174a);border:3px solid #ffd700;border-radius:14px;color:white;font-family:trebuchet ms, sans-serif;display:none;box-shadow:0 12px 40px rgba(0,0,0,0.85);overflow:hidden;'>
+    <div style='background:rgba(0,0,0,0.4);padding:12px 18px;display:flex;align-items:center;justify-space-between;border-bottom:2px solid #5a3d82;'>
+        <div style='display:flex;align-items:center;gap:12px;'>
+            <div id='enchantCellIcon' style='font-size:28px;'>✨</div>
+            <div>
+                <div id='enchantMenuTitle' style='font-size:20px;font-weight:bold;color:#ffd700;text-shadow:0 0 8px rgba(255,215,0,0.6);'>Enchant Equipped Gear</div>
+                <div id='enchantMenuSubtitle' style='font-size:12px;color:#d8b4fe;'>Select an equipped item to apply an enchantment effect.</div>
+            </div>
+        </div>
+        <button id='enchantCloseBtn' onclick='window.closeEnchantModal()' style='background:#e11d48;color:white;border:none;border-radius:6px;width:32px;height:32px;font-weight:bold;font-size:18px;cursor:pointer;line-height:1;transition:0.2s;'>✕</button>
+    </div>
+
+    <div style='padding:8px 18px;background:rgba(255,215,0,0.12);border-bottom:1px solid rgba(255,215,0,0.25);display:flex;justify-content:space-between;align-items:center;font-size:13px;'>
+        <span id='enchantCellTypeLabel' style='color:#fef08a;font-weight:bold;'>Cell Type: Standard Enchanted Cell</span>
+        <span id='enchantCellAmountLabel' style='color:#86efac;font-weight:bold;font-size:14px;'>Available: x1</span>
+    </div>
+
+    <div id='enchantResultBanner' style='display:none;padding:10px 14px;margin:10px 18px 0px 18px;background:rgba(74,222,128,0.18);border:2px solid #4ade80;border-radius:8px;text-align:center;'>
+        <div id='enchantResultTitle' style='font-weight:bold;font-size:16px;color:#86efac;'>✨ Enchantment Applied!</div>
+        <div id='enchantResultDesc' style='font-size:13px;color:#f0fdf4;margin-top:3px;'></div>
+    </div>
+
+    <div id='enchantItemsGrid' style='padding:14px 18px;overflow-y:auto;max-height:380px;display:grid;grid-template-columns:1fr 1fr;gap:12px;'>
+    </div>
+</div>
         <div style='margin-top:30px;margin-left:15px;color:white;font-size:18px;font-family:trebuchet ms;text-align:left' id='stickbugScore'></div>
         <div style='margin-top:30px;margin-left:15px;color:white;font-size:14px;font-family:trebuchet ms;text-align:left' id='stickbugInfo'></div>
 </div>
@@ -4483,18 +4559,18 @@
     
 </div>
 
-<div class='hotbarSlot' style='position:fixed;bottom:35px;left:25%;width:46px;height:46px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
-<div class='hotbarSlot' style='position:fixed;bottom:35px;left:35%;width:46px;height:46px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
-<div class='hotbarSlot' style='position:fixed;bottom:35px;left:45%;width:46px;height:46px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
-<div class='hotbarSlot' style='position:fixed;bottom:35px;left:55%;width:46px;height:46px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
-<div class='hotbarSlot' style='position:fixed;bottom:35px;left:65%;width:46px;height:46px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
-<div class='hotbarSlot' style='position:fixed;bottom:35px;left:75%;width:46px;height:46px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
-<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:25%;width:45px;height:13px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
-<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:35%;width:45px;height:13px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
-<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:45%;width:45px;height:13px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
-<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:55%;width:45px;height:13px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
-<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:65%;width:45px;height:13px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
-<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:75%;width:45px;height:13px;z-index:-1;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
+<div class='hotbarSlot' style='position:fixed;bottom:35px;left:25%;width:46px;height:46px;z-index:10;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
+<div class='hotbarSlot' style='position:fixed;bottom:35px;left:35%;width:46px;height:46px;z-index:10;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
+<div class='hotbarSlot' style='position:fixed;bottom:35px;left:45%;width:46px;height:46px;z-index:10;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
+<div class='hotbarSlot' style='position:fixed;bottom:35px;left:55%;width:46px;height:46px;z-index:10;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
+<div class='hotbarSlot' style='position:fixed;bottom:35px;left:65%;width:46px;height:46px;z-index:10;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
+<div class='hotbarSlot' style='position:fixed;bottom:35px;left:75%;width:46px;height:46px;z-index:10;transform:translate(-50%,0%);border-radius:10px;border:6px solid rgb(200,200,200)'></div>
+<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:25%;width:45px;height:13px;z-index:10;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
+<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:35%;width:45px;height:13px;z-index:10;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
+<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:45%;width:45px;height:13px;z-index:10;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
+<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:55%;width:45px;height:13px;z-index:10;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
+<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:65%;width:45px;height:13px;z-index:10;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
+<div class='autoHotbarButton' style='position:fixed;bottom:15px;left:75%;width:45px;height:13px;z-index:10;transform:translate(-50%,0%);border-radius:10px;padding-top:1px;font-family:trebuchet ms;font-size:8px;text-align:center'></div>
 
 <div id='amuletUI' style='position:fixed;left:50%;top:50%;width:250px;height:350px;z-index:2;transform:translate(-50%,-50%) scale(1.25,1.25);background-color:rgb(255,255,100);border-radius:4px;display:none'>
     

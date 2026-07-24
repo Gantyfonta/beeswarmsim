@@ -1,83 +1,114 @@
 window.main = main;
 function main(){
 
-    //IndexedDB code from Willard
+    //IndexedDB code with localStorage/memory fallback
+    let memorySaves = {};
+
     async function createDatabase() {
-    
-        return await new Promise(async (resolve, reject) => {
-    
-            let request = window.indexedDB.open("IndexedDB_BeeSwarmSimulator", 1)
-    
-            request.onupgradeneeded = function(event) {
-    
-                let DB = event.target.result
-                
-                let store = DB.createObjectStore("worlds", { keyPath: "id" })
-                store.createIndex("id", "id", { unique: true })
-            }
-    
-            request.onsuccess = function(e) {
-                resolve(request.result)
-            }
-    
-            request.onerror = function(e) {
-                reject(e)
+        return new Promise((resolve, reject) => {
+            try {
+                if (!window.indexedDB) {
+                    return reject(new Error("IndexedDB not supported"));
+                }
+                let request = window.indexedDB.open("IndexedDB_BeeSwarmSimulator", 1)
+                request.onupgradeneeded = function(event) {
+                    let DB = event.target.result
+                    if (!DB.objectStoreNames.contains("worlds")) {
+                        let store = DB.createObjectStore("worlds", { keyPath: "id" })
+                        store.createIndex("id", "id", { unique: true })
+                    }
+                }
+                request.onsuccess = function(e) {
+                    resolve(request.result)
+                }
+                request.onerror = function(e) {
+                    reject(e)
+                }
+            } catch(e) {
+                reject(e);
             }
         })
     }
-    
+
     async function loadFromDB(id) {
-    
-        return await new Promise(async (resolve, reject) => {
-    
+        try {
             let db = await createDatabase()
-            let trans = db.transaction("worlds", "readwrite")
-            let store = trans.objectStore("worlds")
-            let req = id ? store.get(id) : store.getAll()
-    
-            req.onsuccess = function(e) {
-                resolve(req.result)
-                db.close()
+            return await new Promise((resolve) => {
+                try {
+                    let trans = db.transaction("worlds", "readwrite")
+                    let store = trans.objectStore("worlds")
+                    let req = id ? store.get(id) : store.getAll()
+                    req.onsuccess = function() {
+                        resolve(req.result || (id ? null : []))
+                        try { db.close() } catch(e){}
+                    }
+                    req.onerror = function() {
+                        resolve(id ? null : [])
+                        try { db.close() } catch(e){}
+                    }
+                } catch(e) {
+                    resolve(id ? null : [])
+                }
+            })
+        } catch(e) {
+            try {
+                let raw = localStorage.getItem('bss_saves')
+                let parsed = raw ? JSON.parse(raw) : {}
+                if (id) return parsed[id] || null
+                return Object.values(parsed)
+            } catch(err) {
+                if (id) return memorySaves[id] || null
+                return Object.values(memorySaves)
             }
-            req.onerror = function(e) { 
-                resolve(null)
-                db.close()
-            }
-        })
+        }
     }
-    
+
     async function saveToDB(id, data) {
-    
-        return new Promise(async (resolve, reject) => {
-    
+        try {
             let db = await createDatabase()
-            let trans = db.transaction("worlds", "readwrite")
-            let store = trans.objectStore("worlds")
-            let req = store.put({ id: id, data: data })
-            req.onsuccess = function() {
-                resolve(req.result)
+            await new Promise((resolve, reject) => {
+                try {
+                    let trans = db.transaction("worlds", "readwrite")
+                    let store = trans.objectStore("worlds")
+                    let req = store.put({ id: id, data: data })
+                    req.onsuccess = function() { resolve(req.result) }
+                    req.onerror = function(e) { reject(e) }
+                } catch(e) { reject(e) }
+            })
+        } catch(e) {
+            try {
+                let raw = localStorage.getItem('bss_saves')
+                let parsed = raw ? JSON.parse(raw) : {}
+                parsed[id] = { id: id, data: data }
+                localStorage.setItem('bss_saves', JSON.stringify(parsed))
+            } catch(err) {
+                memorySaves[id] = { id: id, data: data }
             }
-            req.onerror = function(e) {
-                reject(e)
-            }
-        })
+        }
     }
-    
+
     async function deleteFromDB(id) {
-    
-        return new Promise(async (resolve, reject) => {
-    
+        try {
             let db = await createDatabase()
-            let trans = db.transaction("worlds", "readwrite")
-            let store = trans.objectStore("worlds")
-            let req = store.delete(id)
-            req.onsuccess = function() {
-                resolve(req.result)
+            await new Promise((resolve, reject) => {
+                try {
+                    let trans = db.transaction("worlds", "readwrite")
+                    let store = trans.objectStore("worlds")
+                    let req = store.delete(id)
+                    req.onsuccess = function() { resolve(req.result) }
+                    req.onerror = function(e) { reject(e) }
+                } catch(e) { reject(e) }
+            })
+        } catch(e) {
+            try {
+                let raw = localStorage.getItem('bss_saves')
+                let parsed = raw ? JSON.parse(raw) : {}
+                delete parsed[id]
+                localStorage.setItem('bss_saves', JSON.stringify(parsed))
+            } catch(err) {
+                delete memorySaves[id]
             }
-            req.onerror = function(e) {
-                reject(e)
-            }
-        })
+        }
     }
     
     window.createDatabase=createDatabase
@@ -172,8 +203,13 @@ function main(){
         document.getElementById('savedGames').appendChild(div)
     
         loadFromDB().then(res=>{
+            if (!res || !Array.isArray(res)) res = [];
     
             window.initSave=function(index){
+                if (!res[index] || !res[index].data) {
+                    console.error("Save not found at index", index);
+                    return;
+                }
     
                 document.getElementById('mainSelectMenu').style.display='none'
                 document.getElementById('mainInfoMenu').style.display='none'
@@ -232,7 +268,7 @@ function main(){
                 })
             }
     
-            res.sort((a,b)=>b.data.lastSaved-a.data.lastSaved)
+            res.sort((a,b)=>((b && b.data && b.data.lastSaved) || 0) - ((a && a.data && a.data.lastSaved) || 0))
     
             if(res.length){
                 
@@ -643,7 +679,7 @@ function BeeSwarmSimulator(DATA){
         itemSVGCode[name]='<svg style="pointer-events:none;width:70px;height:70px;transform:SCALE">'+(itemSVGCode[name][itemSVGCode[name].length-1]).substr(0,itemSVGCode[name][itemSVGCode[name].length-1].indexOf('</svg>'))+'<title>'+MATH.doGrammar(name)+'</title></svg>'
     }
 
-    for(let i in hotbarSlots){
+    for(let i=0; i<hotbarSlots.length; i++){
         
         hotbarSlots[i].onmousedown=function(){
 
@@ -704,7 +740,7 @@ function BeeSwarmSimulator(DATA){
                     }
                 }
                 
-                for(let j in hotbarSlots){
+                for(let j=0; j<hotbarSlots.length; j++){
                     
                     if(hotbarSlots[j].itemType===player.itemDragging&&i!==j){
 
@@ -1301,6 +1337,62 @@ function BeeSwarmSimulator(DATA){
             },requirements:function(player){
                 
                 if(player.discoveredBees.length<25) return 'Discover 25 bee types to use the Red Cannon!'
+            }
+        },
+        
+        enchanted_cell_dispenser:{
+            isMachine:true,
+            minX:45.5,maxX:50.5,minY:0,maxY:8,minZ:-6.3,maxZ:-1.3,
+            get message(){
+                let count = (player && player.extraInfo && player.extraInfo.enchantedCellPurchases) || 0;
+                let cost = Math.floor(5000 * Math.pow(1.5, count));
+                return 'Use Enchanted Cell Dispenser<br>(' + MATH.addCommas(cost + '') + ' Honey)';
+            },
+            requirements:function(player){
+                let count = (player.extraInfo && player.extraInfo.enchantedCellPurchases) || 0;
+                let cost = Math.floor(5000 * Math.pow(1.5, count));
+                if(player.honey < cost){
+                    return 'You need ' + MATH.addCommas(cost + '') + ' honey to use the Enchanted Cell Dispenser!';
+                }
+            },
+            func:function(player){
+                let count = (player.extraInfo && player.extraInfo.enchantedCellPurchases) || 0;
+                let cost = Math.floor(5000 * Math.pow(1.5, count));
+                if(player.honey < cost) return;
+
+                player.honey -= cost;
+                player.extraInfo.enchantedCellPurchases = count + 1;
+
+                let rand = Math.random();
+                let cellType, cellName;
+                if (rand < 0.60) {
+                    cellType = 'enchantedCell';
+                    cellName = 'Enchanted Cell';
+                } else if (rand < 0.90) {
+                    cellType = 'enchantedWaxedCell';
+                    cellName = 'Enchanted Waxed Cell';
+                } else {
+                    cellType = 'enchantedSwarmCell';
+                    cellName = 'Enchanted Swarm Cell';
+                }
+
+                if (!items[cellType]) {
+                    items[cellType] = { amount: 0, cooldown: 0 };
+                }
+                if (!items[cellType].svg) {
+                    items[cellType].svg = document.getElementById(cellType);
+                }
+                if (!items[cellType].amountText) {
+                    items[cellType].amountText = document.getElementById(cellType + '_amount');
+                }
+
+                items[cellType].amount = (items[cellType].amount || 0) + 1;
+                player.updateInventory();
+
+                player.addMessage('You got an ' + cellName + '!');
+                if (typeof textRenderer !== 'undefined' && textRenderer.add && player.body && player.body.position) {
+                    textRenderer.add('+' + cellName, [player.body.position.x, player.body.position.y + 2, player.body.position.z], [255, 215, 0], 1.5, '✨');
+                }
             }
         },
         
@@ -9945,6 +10037,302 @@ function BeeSwarmSimulator(DATA){
             }
         }
     }
+
+    window.grantUnlimitedHoney = function() {
+        if (typeof player !== 'undefined') {
+            player.honey = (player.honey || 0) + 1000000000000000;
+            if (player.addMessage) {
+                player.addMessage("🐝 Unlimited Honey Granted! (+1 Quadrillion Honey)");
+            }
+            if (typeof textRenderer !== 'undefined' && textRenderer.add && player.body) {
+                textRenderer.add("🍯 UNLIMITED HONEY! 🍯", [player.body.position.x, player.body.position.y + 2.5, player.body.position.z], [255, 215, 0], 2.5, '🍯');
+            }
+        }
+    };
+
+    window.ENCHANT_DATA = {
+        tool: [
+            { name: "Giant Swing", desc: "Occasionally collects a 5x5 area instead of normal.", type: "giantSwing" },
+            { name: "Critical Harvest", desc: "5% chance for a swing to collect 5x pollen.", type: "criticalHarvest" },
+            { name: "Haste", desc: "Swing speed increased (+25%).", type: "haste" },
+            { name: "Converter", desc: "Some collected pollen converts instantly to honey (+15%).", type: "converter" },
+            { name: "Blooming", desc: "Flowers regrow faster after harvesting.", type: "blooming" },
+            { name: "Chain Harvest", desc: "Occasionally hits nearby flowers.", type: "chainHarvest" },
+            { name: "Energized", desc: "Ability cooldown reduced by 20%.", type: "energized" },
+            { name: "Magnetic", desc: "Collects nearby tokens automatically.", type: "magnetic" }
+        ],
+        backpack: [
+            { name: "Bottomless", desc: "+25% capacity.", type: "bottomless" },
+            { name: "Auto Compressor", desc: "Converts a small percentage while collecting.", type: "autoCompressor" },
+            { name: "Lightweight", desc: "Move faster while backpack is full.", type: "lightweight" },
+            { name: "Honey Filter", desc: "Higher conversion rate (+25%).", type: "honeyFilter" },
+            { name: "Golden Storage", desc: "Occasionally stores bonus honey (+20%).", type: "goldenStorage" },
+            { name: "Reservoir", desc: "Keeps part of stored pollen after death.", type: "reservoir" }
+        ],
+        mask: [
+            { name: "Wise", desc: "More experience (+25% bond).", type: "wise" },
+            { name: "Royal", desc: "More honey from all sources (+15%).", type: "royal" },
+            { name: "Lucky", desc: "Higher loot chance (+25% luck).", type: "lucky" },
+            { name: "Insight", desc: "More quest rewards (+30% quest honey).", type: "insight" },
+            { name: "Focus", desc: "Critical chance increased (+10%).", type: "focus" },
+            { name: "Bee Whisperer", desc: "Bees work 20% faster.", type: "beeWhisperer" }
+        ],
+        guard: [
+            { name: "Thorns", desc: "Reflect damage every 10 sec.", type: "thorns" },
+            { name: "Berserker", desc: "Bees do 30% more damage when health is low.", type: "berserker" },
+            { name: "Defender", desc: "Flat damage reduction (-15%).", type: "defender" },
+            { name: "Swarm Shield", desc: "20% chance to block attacks.", type: "swarmShield" },
+            { name: "Spike Armor", desc: "Enemies touching you take damage.", type: "spikeArmor" },
+            { name: "Commander", desc: "Nearby bees attack 25% faster.", type: "commander" },
+            { name: "Rally", desc: "Defeating enemies grants temporary buffs.", type: "rally" }
+        ],
+        general: [
+            { name: "Haste", desc: "Movement speed increased (+20%).", type: "haste" },
+            { name: "Lightweight", desc: "Move faster.", type: "lightweight" },
+            { name: "Defender", desc: "Flat damage reduction (-15%).", type: "defender" },
+            { name: "Lucky", desc: "Higher loot chance (+25%).", type: "lucky" },
+            { name: "Focus", desc: "Critical chance increased (+10%).", type: "focus" }
+        ],
+        universal: [
+            { name: "Shiny", desc: "Stats are 20% stronger.", prefix: "Shiny", type: "shiny" },
+            { name: "Ancient", desc: "Random bonus stat every minute.", prefix: "Ancient", type: "ancient" },
+            { name: "Cursed", desc: "Huge buff with downside (+40% pollen, -20% speed).", prefix: "Cursed", type: "cursed" },
+            { name: "Celestial", desc: "Periodically creates powerful temporary buffs.", prefix: "Celestial", type: "celestial" },
+            { name: "Eternal", desc: "Enchantment can never be overwritten unless manually removed.", prefix: "Eternal", type: "eternal", isEternal: true }
+        ]
+    };
+
+    window.activeEnchantCellType = 'enchantedCell';
+
+    window.openEnchantModal = function(cellType) {
+        window.activeEnchantCellType = cellType || 'enchantedCell';
+        let modal = document.getElementById('enchantMenu');
+        if (!modal) return;
+
+        let titleLabel = document.getElementById('enchantMenuTitle');
+        let typeLabel = document.getElementById('enchantCellTypeLabel');
+        let amountLabel = document.getElementById('enchantCellAmountLabel');
+        let iconLabel = document.getElementById('enchantCellIcon');
+
+        let cellName = "Enchanted Cell";
+        let icon = "✨";
+        if (window.activeEnchantCellType === 'enchantedWaxedCell') {
+            cellName = "Enchanted Waxed Cell";
+            icon = "🐝";
+        } else if (window.activeEnchantCellType === 'enchantedSwarmCell') {
+            cellName = "Enchanted Swarm Cell";
+            icon = "⚡";
+        }
+
+        if (titleLabel) titleLabel.textContent = "Enchant Equipped Gear";
+        if (iconLabel) iconLabel.textContent = icon;
+        if (typeLabel) typeLabel.textContent = "Cell Type: " + cellName;
+        if (amountLabel) amountLabel.textContent = "Available: x" + (items[window.activeEnchantCellType] ? items[window.activeEnchantCellType].amount : 0);
+
+        let banner = document.getElementById('enchantResultBanner');
+        if (banner) banner.style.display = 'none';
+
+        window.renderEnchantModalGrid();
+        modal.style.display = 'block';
+    };
+
+    window.closeEnchantModal = function() {
+        let modal = document.getElementById('enchantMenu');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window.renderEnchantModalGrid = function() {
+        let grid = document.getElementById('enchantItemsGrid');
+        if (!grid) return;
+
+        if (!player.gearEnchants) player.gearEnchants = {};
+
+        let slots = [
+            { id: 'tool', label: '🗡️ Tool' },
+            { id: 'backpack', label: '🎒 Backpack' },
+            { id: 'mask', label: '👑 Hat / Mask' },
+            { id: 'leftGuard', label: '🛡️ Left Guard' },
+            { id: 'rightGuard', label: '🛡️ Right Guard' },
+            { id: 'boots', label: '👢 Boots' },
+            { id: 'belt', label: '📿 Belt' }
+        ];
+
+        let html = '';
+        for (let s of slots) {
+            let itemName = player.currentGear ? player.currentGear[s.id] : undefined;
+            let hasItem = itemName && itemName !== 'none';
+            let enchant = player.gearEnchants[s.id];
+
+            let displayName = hasItem ? MATH.doGrammar(itemName) : 'None Equipped';
+
+            let encHtml = '<span style="color:#94a3b8;font-size:12px;">Current: None</span>';
+            let isEternal = false;
+
+            if (hasItem && enchant) {
+                let nameStr = (enchant.prefix ? '[' + enchant.prefix + '] ' : '') + enchant.name;
+                let color = enchant.prefix ? '#facc15' : '#c084fc';
+                if (enchant.isEternal) isEternal = true;
+
+                encHtml = '<div style="color:' + color + ';font-weight:bold;font-size:13px;margin-bottom:2px;">✨ ' + nameStr + (isEternal ? ' <span style="background:#ef4444;color:white;font-size:10px;padding:1px 4px;border-radius:4px;margin-left:4px;">🔒 Eternal</span>' : '') + '</div>' +
+                          '<div style="color:#e2e8f0;font-size:11px;font-style:italic;">' + enchant.desc + '</div>';
+            }
+
+            let btnHtml = '';
+            if (!hasItem) {
+                btnHtml = '<button disabled style="width:100%;padding:6px;background:#334155;color:#64748b;border:none;border-radius:6px;font-size:12px;font-weight:bold;">Empty Slot</button>';
+            } else if (isEternal) {
+                btnHtml = '<div style="display:flex;gap:6px;width:100%;">' +
+                            '<button disabled style="flex:1;padding:6px;background:#475569;color:#cbd5e1;border:none;border-radius:6px;font-size:11px;font-weight:bold;">🔒 Eternal</button>' +
+                            '<button onclick="window.removeEternalEnchant(\'' + s.id + '\')" style="padding:6px 10px;background:#dc2626;color:white;border:none;border-radius:6px;font-size:11px;font-weight:bold;cursor:pointer;">Remove</button>' +
+                          '</div>';
+            } else {
+                btnHtml = '<button onclick="window.applyEnchantToSlot(\'' + s.id + '\')" style="width:100%;padding:7px;background:linear-gradient(135deg, #eab308, #ca8a04);color:black;border:none;border-radius:6px;font-size:12px;font-weight:bold;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3);">Enchant Item</button>';
+            }
+
+            html += '<div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;">' +
+                        '<div>' +
+                            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+                                '<span style="font-size:12px;font-weight:bold;color:#fde047;">' + s.label + '</span>' +
+                                '<span style="font-size:11px;color:#93c5fd;font-weight:bold;">' + displayName + '</span>' +
+                            '</div>' +
+                            '<div>' + encHtml + '</div>' +
+                        '</div>' +
+                        btnHtml +
+                    '</div>';
+        }
+
+        grid.innerHTML = html;
+    };
+
+    window.applyEnchantToSlot = function(slot) {
+        let cellType = window.activeEnchantCellType || 'enchantedCell';
+
+        if (!items[cellType] || items[cellType].amount <= 0) {
+            player.addMessage("You don't have any of this Enchanted Cell left!", COLORS.redArr);
+            return;
+        }
+
+        if (!player.currentGear || !player.currentGear[slot] || player.currentGear[slot] === 'none') {
+            player.addMessage("You must have an item equipped in this slot to enchant it!", COLORS.redArr);
+            return;
+        }
+
+        if (!player.gearEnchants) player.gearEnchants = {};
+
+        if (player.gearEnchants[slot] && player.gearEnchants[slot].isEternal) {
+            player.addMessage("This item has an Eternal enchantment! Remove it first before overwriting.", COLORS.redArr);
+            return;
+        }
+
+        items[cellType].amount--;
+        player.updateInventory();
+
+        let slotType = slot;
+        if (slot === 'leftGuard' || slot === 'rightGuard') slotType = 'guard';
+
+        let basePool = window.ENCHANT_DATA[slotType] || window.ENCHANT_DATA.general;
+        let mainEnchant = basePool[Math.floor(Math.random() * basePool.length)];
+
+        let prefixChance = cellType === 'enchantedSwarmCell' ? 0.50 : (cellType === 'enchantedWaxedCell' ? 0.40 : 0.22);
+        let prefix = "";
+        let isEternal = false;
+
+        if (Math.random() < prefixChance) {
+            let uniPool = window.ENCHANT_DATA.universal;
+            let uni = uniPool[Math.floor(Math.random() * uniPool.length)];
+            prefix = uni.prefix;
+            if (uni.isEternal) isEternal = true;
+        }
+
+        let result = {
+            slot: slot,
+            name: mainEnchant.name,
+            desc: mainEnchant.desc,
+            type: mainEnchant.type,
+            prefix: prefix,
+            isEternal: isEternal,
+            cellUsed: cellType,
+            time: Date.now()
+        };
+
+        player.gearEnchants[slot] = result;
+        player.updateGear();
+
+        let itemName = MATH.doGrammar(player.currentGear[slot]);
+        let nameStr = (prefix ? '[' + prefix + '] ' : '') + mainEnchant.name;
+
+        player.addMessage("✨ Enchanted " + itemName + " with " + nameStr + "!");
+
+        if (typeof textRenderer !== 'undefined' && textRenderer.add) {
+            textRenderer.add("✨ " + nameStr, [player.body.position.x, player.body.position.y + 2.5, player.body.position.z], [255, 215, 0], 2, '✨');
+        }
+
+        let amountLabel = document.getElementById('enchantCellAmountLabel');
+        if (amountLabel) amountLabel.textContent = "Available: x" + items[cellType].amount;
+
+        let banner = document.getElementById('enchantResultBanner');
+        let resultTitle = document.getElementById('enchantResultTitle');
+        let resultDesc = document.getElementById('enchantResultDesc');
+
+        if (banner && resultTitle && resultDesc) {
+            resultTitle.textContent = "✨ Enchanted " + itemName + " with [" + nameStr + "]!";
+            resultDesc.textContent = mainEnchant.desc;
+            banner.style.display = 'block';
+        }
+
+        window.renderEnchantModalGrid();
+    };
+
+    window.removeEternalEnchant = function(slot) {
+        if (player.gearEnchants && player.gearEnchants[slot]) {
+            delete player.gearEnchants[slot];
+            player.updateGear();
+            player.addMessage("Removed Eternal enchantment from " + slot + ".");
+            window.renderEnchantModalGrid();
+        }
+    };
+
+    items.enchantedCell = {
+        amount: 0,
+        u: 128 * 3 / 2048,
+        v: 128 * 10 / 2048,
+        value: 50,
+        use: function() {
+            if (items.enchantedCell.amount <= 0) {
+                player.addMessage("You don't have any Enchanted Cells!", COLORS.redArr);
+                return;
+            }
+            window.openEnchantModal('enchantedCell');
+        }
+    };
+
+    items.enchantedWaxedCell = {
+        amount: 0,
+        u: 128 * 3 / 2048,
+        v: 128 * 10 / 2048,
+        value: 100,
+        use: function() {
+            if (items.enchantedWaxedCell.amount <= 0) {
+                player.addMessage("You don't have any Enchanted Waxed Cells!", COLORS.redArr);
+                return;
+            }
+            window.openEnchantModal('enchantedWaxedCell');
+        }
+    };
+
+    items.enchantedSwarmCell = {
+        amount: 0,
+        u: 128 * 3 / 2048,
+        v: 128 * 10 / 2048,
+        value: 250,
+        use: function() {
+            if (items.enchantedSwarmCell.amount <= 0) {
+                player.addMessage("You don't have any Enchanted Swarm Cells!", COLORS.redArr);
+                return;
+            }
+            window.openEnchantModal('enchantedSwarmCell');
+        }
+    };
 
     for(let i in items){
 
@@ -24022,17 +24410,17 @@ function BeeSwarmSimulator(DATA){
                 if(items[i].amount<=0){
                     
                     items[i].amount=0
-                    items[i].svg.style.display='none'
+                    if (items[i].svg && items[i].svg.style) items[i].svg.style.display='none'
                     
                 } else {
 
-                    items[i].svg.style.display='inline'
-                    items[i].amountText.textContent='x'+items[i].amount
+                    if (items[i].svg && items[i].svg.style) items[i].svg.style.display='inline'
+                    if (items[i].amountText) items[i].amountText.textContent='x'+items[i].amount
                     
                     noItemsMessage.style.display='none'
                 }
                 
-                for(let j in hotbarSlots){
+                for(let j=0; j<hotbarSlots.length; j++){
                     
                     if(hotbarSlots[j].itemType===i){
 
@@ -24421,6 +24809,56 @@ function BeeSwarmSimulator(DATA){
                     
                     if(gear[i][out.currentGear[i]].applyStats)
                         gear[i][out.currentGear[i]].applyStats(out.defaultStats,out)
+                }
+            }
+
+            if(player.gearEnchants){
+                for(let slot in player.gearEnchants){
+                    let enc = player.gearEnchants[slot];
+                    if(!enc || !player.currentGear[slot] || player.currentGear[slot]==='none') continue;
+
+                    let mult = enc.prefix==='Shiny' ? 1.25 : 1.0;
+
+                    switch(enc.type){
+                        case 'giantSwing': out.defaultStats.giantSwing = true; break;
+                        case 'criticalHarvest': out.defaultStats.criticalHarvest = true; break;
+                        case 'haste': out.defaultStats.moveSpeed = (out.defaultStats.moveSpeed||15)*(1 + 0.20*mult); break;
+                        case 'converter': out.defaultStats.instantConvert = (out.defaultStats.instantConvert||0) + (0.15*mult); break;
+                        case 'blooming': out.defaultStats.flowerRegrowth = (out.defaultStats.flowerRegrowth||1) * (1.5*mult); break;
+                        case 'chainHarvest': out.defaultStats.chainHarvest = true; break;
+                        case 'energized': out.defaultStats.abilityCooldownMultiplier = (out.defaultStats.abilityCooldownMultiplier||1) * 0.8; break;
+                        case 'magnetic': out.defaultStats.tokenPullRadius = (out.defaultStats.tokenPullRadius||10) + (15*mult); break;
+                        case 'bottomless': out.defaultStats.capacityMultiplier = (out.defaultStats.capacityMultiplier||1) * (1 + 0.25*mult); break;
+                        case 'autoCompressor': out.defaultStats.autoCompressor = true; break;
+                        case 'lightweight': out.defaultStats.lightweight = true; break;
+                        case 'honeyFilter': out.defaultStats.convertRate = (out.defaultStats.convertRate||1) * (1 + 0.25*mult); break;
+                        case 'goldenStorage': out.defaultStats.goldenStorage = true; break;
+                        case 'reservoir': out.defaultStats.reservoir = true; break;
+                        case 'wise': out.defaultStats.bondMultiplier = (out.defaultStats.bondMultiplier||1) * (1 + 0.25*mult); break;
+                        case 'royal': out.defaultStats.honeyMultiplier = (out.defaultStats.honeyMultiplier||1) * (1 + 0.15*mult); break;
+                        case 'lucky': out.defaultStats.lootLuck = (out.defaultStats.lootLuck||1) * (1 + 0.25*mult); break;
+                        case 'insight': out.defaultStats.questHoneyMultiplier = (out.defaultStats.questHoneyMultiplier||1) * (1 + 0.30*mult); break;
+                        case 'focus': out.defaultStats.criticalChance = (out.defaultStats.criticalChance||0) + (0.10*mult); break;
+                        case 'beeWhisperer': out.defaultStats.beeGatherRate = (out.defaultStats.beeGatherRate||1) * (1 + 0.20*mult); break;
+                        case 'thorns': out.defaultStats.thorns = true; break;
+                        case 'berserker': out.defaultStats.berserker = true; break;
+                        case 'defender': out.defaultStats.damageReduction = (out.defaultStats.damageReduction||0) + (0.15*mult); break;
+                        case 'swarmShield': out.defaultStats.swarmShieldChance = (out.defaultStats.swarmShieldChance||0) + (0.20*mult); break;
+                        case 'spikeArmor': out.defaultStats.spikeArmor = true; break;
+                        case 'commander': out.defaultStats.beeAttackRate = (out.defaultStats.beeAttackRate||1) * (1 + 0.25*mult); break;
+                        case 'rally': out.defaultStats.rallyOnKill = true; break;
+                    }
+
+                    if(enc.prefix === 'Shiny') {
+                        out.defaultStats.pollenMultiplier = (out.defaultStats.pollenMultiplier||1) * 1.15;
+                    } else if(enc.prefix === 'Ancient') {
+                        out.defaultStats.ancientEnchant = true;
+                    } else if(enc.prefix === 'Cursed') {
+                        out.defaultStats.pollenMultiplier = (out.defaultStats.pollenMultiplier||1) * 1.40;
+                        out.defaultStats.moveSpeed = (out.defaultStats.moveSpeed||15) * 0.80;
+                    } else if(enc.prefix === 'Celestial') {
+                        out.defaultStats.celestialEnchant = true;
+                    }
                 }
             }
 
@@ -24909,7 +25347,10 @@ function BeeSwarmSimulator(DATA){
                     col[i]='rgb('+color[0]+','+color[1]+','+color[2]+')'
                 }
 
-                pages[2].innerHTML+="<div style='margin-left:3px;margin-top:-118px;width:188px;height:26px;background-color:rgb(245,235,90);border-radius:2px;padding-left:3px;padding-top:2px;font-family:trebuchet ms;font-size:19px;text-align:center'><div style='position:absolute;left:8px;top:84px;width:20px;height:20px;font-size:19px;background-color:rgb(255,0,0);cursor:pointer;border:2px solid black;border-radius:4px;padding-top:0px'><div style='margin-top:-3px' onclick='window.exitBeesPageBee()'>x</div></div>&nbsp;&nbsp;"+MATH.doGrammar(out.beesPageBee)+" Bee</div><div style='margin-left:90px;margin-top:5px;width:103px;height:16px;background-color:rgb(230,220,150);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>"+MATH.doGrammar(beeInfo[out.beesPageBee].rarity)+"</div><div style='margin-left:90px;margin-top:3px;width:103px;height:16px;background-color:rgb(230,220,150);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>"+MATH.doGrammar(beeInfo[out.beesPageBee].color)+"</div><div style='margin-left:90px;margin-top:3px;width:103px;height:16px;background-color:"+col[0]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>Energy: "+beeInfo[out.beesPageBee].energy+"</div><div style='margin-left:90px;margin-top:3px;width:103px;height:16px;background-color:"+col[1]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>Speed: "+beeInfo[out.beesPageBee].speed+"</div><div style='margin-left:90px;margin-top:3px;width:103px;height:16px;background-color:"+col[2]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>Attack: "+beeInfo[out.beesPageBee].attack+"</div><div style='margin-left:0px;margin-top:-15px;width:90px;height:16px;background-color:rgb(0,0,0,0);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'><b>x"+count+"</b>"+(gifted?'&nbsp;&nbsp;&nbsp;&nbsp;⭐':'')+"</div><div style='margin-left:5px;margin-top:5px;width:188px;height:16px;background-color:"+col[3]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center;padding-top:1px;padding-bottom:1px;'>Collects "+beeInfo[out.beesPageBee].gatherAmount+" pollen in "+beeInfo[out.beesPageBee].gatherSpeed+"s</div><div style='margin-left:5px;margin-top:3px;width:188px;height:16px;background-color:"+col[4]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center;padding-top:1px;padding-bottom:1px;'>Makes "+beeInfo[out.beesPageBee].convertAmount+" honey in "+beeInfo[out.beesPageBee].convertSpeed+"s</div><div style='margin-left:5px;margin-top:3px;width:188px;background-color:rgb(230,220,150);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center;padding-top:1px;padding-bottom:1px;'><b>⭐ Gifted Hive Bonus ⭐</b><div style='margin-top:-8px'>"+giftedBonusStr+"</div></div>"
+                let isHoneyBee = (out.beesPageBee === 'honey' || out.beesPageBee === 'honeyBee');
+                let rarityClickAttr = isHoneyBee ? "onclick='window.grantUnlimitedHoney()' title='Click for Unlimited Honey!' style='margin-left:90px;margin-top:5px;width:103px;height:16px;background-color:rgb(255,215,0);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center;cursor:pointer;font-weight:bold;color:black;box-shadow:0 0 6px rgba(255,215,0,0.8);'" : "style='margin-left:90px;margin-top:5px;width:103px;height:16px;background-color:rgb(230,220,150);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'";
+
+                pages[2].innerHTML+="<div style='margin-left:3px;margin-top:-118px;width:188px;height:26px;background-color:rgb(245,235,90);border-radius:2px;padding-left:3px;padding-top:2px;font-family:trebuchet ms;font-size:19px;text-align:center'><div style='position:absolute;left:8px;top:84px;width:20px;height:20px;font-size:19px;background-color:rgb(255,0,0);cursor:pointer;border:2px solid black;border-radius:4px;padding-top:0px'><div style='margin-top:-3px' onclick='window.exitBeesPageBee()'>x</div></div>&nbsp;&nbsp;"+MATH.doGrammar(out.beesPageBee)+" Bee</div><div "+rarityClickAttr+">"+MATH.doGrammar(beeInfo[out.beesPageBee].rarity)+"</div><div style='margin-left:90px;margin-top:3px;width:103px;height:16px;background-color:rgb(230,220,150);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>"+MATH.doGrammar(beeInfo[out.beesPageBee].color)+"</div><div style='margin-left:90px;margin-top:3px;width:103px;height:16px;background-color:"+col[0]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>Energy: "+beeInfo[out.beesPageBee].energy+"</div><div style='margin-left:90px;margin-top:3px;width:103px;height:16px;background-color:"+col[1]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>Speed: "+beeInfo[out.beesPageBee].speed+"</div><div style='margin-left:90px;margin-top:3px;width:103px;height:16px;background-color:"+col[2]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'>Attack: "+beeInfo[out.beesPageBee].attack+"</div><div style='margin-left:0px;margin-top:-15px;width:90px;height:16px;background-color:rgb(0,0,0,0);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center'><b>x"+count+"</b>"+(gifted?'&nbsp;&nbsp;&nbsp;&nbsp;⭐':'')+"</div><div style='margin-left:5px;margin-top:5px;width:188px;height:16px;background-color:"+col[3]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center;padding-top:1px;padding-bottom:1px;'>Collects "+beeInfo[out.beesPageBee].gatherAmount+" pollen in "+beeInfo[out.beesPageBee].gatherSpeed+"s</div><div style='margin-left:5px;margin-top:3px;width:188px;height:16px;background-color:"+col[4]+";border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center;padding-top:1px;padding-bottom:1px;'>Makes "+beeInfo[out.beesPageBee].convertAmount+" honey in "+beeInfo[out.beesPageBee].convertSpeed+"s</div><div style='margin-left:5px;margin-top:3px;width:188px;background-color:rgb(230,220,150);border-radius:2px;padding-left:3px;font-family:trebuchet ms;font-size:13px;text-align:center;padding-top:1px;padding-bottom:1px;'><b>⭐ Gifted Hive Bonus ⭐</b><div style='margin-top:-8px'>"+giftedBonusStr+"</div></div>"
 
                 let tokens=[]
 
@@ -25670,7 +26111,12 @@ function BeeSwarmSimulator(DATA){
             if(currentPage===3&&TIME-player.statsStringLastUpdate>0.2){
 
                 player.statsStringLastUpdate=TIME
-                statString.innerHTML='<br>FPS: '+(1/dt).toFixed(2)+'<br>Delta Time: '+dt.toFixed(4)+'<br>Particle Count: '+ParticleRenderer.particles.length+'<br>Token Count: '+objects.tokens.length+'<br>Entity Count: '+(objects.bees.length+objects.tempBees.length+objects.bees.length+objects.tokens.length+objects.mobs.length+objects.explosions.length+objects.flames.length+objects.bubbles.length+objects.marks.length+objects.triangulates.length+objects.fuzzBombs.length+objects.balloons.length+objects.targets.length+objects.planters.length)+'<br><br>Convert Rate: '+Math.round(player.convertRate*100)+'%<br>Red Pollen: '+Math.round(player.redPollen*100)+'%<br>Blue Pollen: '+Math.round(player.bluePollen*100)+'%<br>White Pollen: '+Math.round(player.whitePollen*100)+'%<br>Capacity Multiplier: '+Math.round(player.capacityMultiplier*100)+'%<br>Walk Speed: '+player.walkSpeed.toFixed(1)+'<br>Jump Power: '+player.jumpPower.toFixed(1)+'<br>Instant Red Conversion: '+Math.round(player.instantRedConversion*100)+'%<br>Instant Blue Conversion: '+Math.round(player.instantBlueConversion*100)+'%<br>Instant White Conversion: '+Math.round(player.instantWhiteConversion*100)+'%<br>Instant Flame Conversion: '+Math.round(player.instantFlameConversion*100)+'%<br>Critical Chance: '+Math.round(player.criticalChance*100)+'%<br>Critical Power: '+Math.round(player.criticalPower*100)+'%<br>Super-Crit Chance: '+Math.round(player.superCritChance*100)+'%<br>Super-Crit Power: '+Math.round(player.superCritPower*100)+'%<br>Goo: '+Math.round(player.goo*100)+'%<br>Flame Pollen: '+Math.round(player.flamePollen*100)+'%<br>Flame Life: '+Math.round(player.flameLife*100)+'%<br>Bubble Pollen: '+Math.round(player.bubblePollen*100)+'%<br>Pollen From Tools: '+Math.round(player.pollenFromTools*100)+'%<br>Pollen From Bees: '+Math.round(player.pollenFromBees*100)+'%<br>White Bomb Pollen: '+Math.round(player.whiteBombPollen*100)+'%<br>Red Bomb Pollen: '+Math.round(player.redBombPollen*100)+'%<br>Blue Bomb Pollen: '+Math.round(player.blueBombPollen*100)+'%<br>White Bee Attack: '+player.whiteBeeAttack+'<br>Blue Bee Attack: '+player.blueBeeAttack+'<br>Red Bee Attack: '+player.redBeeAttack+'<br>Bee Attack Multiplier: '+Math.round(player.beeAttack*100)+'%<br>Honey From Tokens: '+Math.round(player.honeyFromTokens*100)+'%<br>Red Bee Ability Rate: '+Math.round(player.redBeeAbilityRate*100)+'%<br>Blue Bee Ability Rate: '+Math.round(player.blueBeeAbilityRate*100)+'%<br>White Bee Ability Rate: '+Math.round(player.whiteBeeAbilityRate*100)+'%<br>Bee Movespeed: '+Math.round(player.beeSpeed*100)+'%<br>Bee Energy: '+Math.round(player.beeEnergy*100)+'%<br>Honey At Hive: '+Math.round(player.honeyAtHive*100)+'%<br>Honey Per Pollen: '+Math.round(player.honeyPerPollen*100)+'%<br>Loot Luck: '+Math.round(player.lootLuck*100)+'%<br>Capacity Multiplier: '+Math.round(player.capacityMultiplier*100)+'%<br>Red Field Capacity: '+Math.round(player.redFieldCapacity*100)+'%<br>White Field Capacity: '+Math.round(player.whiteFieldCapacity*100)+'%<br>Blue Field Capacity: '+Math.round(player.blueFieldCapacity*100)+'%<br>Ability Duplication Chance: '+Math.round(player.abilityDuplicationChance*100+(player.hasDigitalBee&&player.extraInfo.drives.maxed?1:0))+'%<br>Bond From Treats: '+Math.round(player.bondFromTreats*100)+'%<br>Nectar Multiplier: '+Math.round(player.nectarMultiplier*100)+'%<br>Defense: '+Math.round(player.defense*100)+'%<br>Monster Respawn Rate: '+Math.round((1/player.monsterRespawnRate)*100)+'%<br><br>Convert Total: '+Math.round(player.convertTotal)+'<br>Attack Total: '+Math.round(player.attackTotal)
+                let px = (player && player.body && player.body.position ? player.body.position.x : 0).toFixed(1)
+                let py = (player && player.body && player.body.position ? player.body.position.y : 0).toFixed(1)
+                let pz = (player && player.body && player.body.position ? player.body.position.z : 0).toFixed(1)
+                let pcd = document.getElementById('playerCoordsDisplay')
+                if (pcd) pcd.innerHTML = 'Coordinates: X: ' + px + ' | Y: ' + py + ' | Z: ' + pz
+                statString.innerHTML='<br><b>Position:</b> X: '+px+' | Y: '+py+' | Z: '+pz+'<br><br>FPS: '+(1/dt).toFixed(2)+'<br>Delta Time: '+dt.toFixed(4)+'<br>Particle Count: '+ParticleRenderer.particles.length+'<br>Token Count: '+objects.tokens.length+'<br>Entity Count: '+(objects.bees.length+objects.tempBees.length+objects.bees.length+objects.tokens.length+objects.mobs.length+objects.explosions.length+objects.flames.length+objects.bubbles.length+objects.marks.length+objects.triangulates.length+objects.fuzzBombs.length+objects.balloons.length+objects.targets.length+objects.planters.length)+'<br><br>Convert Rate: '+Math.round(player.convertRate*100)+'%<br>Red Pollen: '+Math.round(player.redPollen*100)+'%<br>Blue Pollen: '+Math.round(player.bluePollen*100)+'%<br>White Pollen: '+Math.round(player.whitePollen*100)+'%<br>Capacity Multiplier: '+Math.round(player.capacityMultiplier*100)+'%<br>Walk Speed: '+player.walkSpeed.toFixed(1)+'<br>Jump Power: '+player.jumpPower.toFixed(1)+'<br>Instant Red Conversion: '+Math.round(player.instantRedConversion*100)+'%<br>Instant Blue Conversion: '+Math.round(player.instantBlueConversion*100)+'%<br>Instant White Conversion: '+Math.round(player.instantWhiteConversion*100)+'%<br>Instant Flame Conversion: '+Math.round(player.instantFlameConversion*100)+'%<br>Critical Chance: '+Math.round(player.criticalChance*100)+'%<br>Critical Power: '+Math.round(player.criticalPower*100)+'%<br>Super-Crit Chance: '+Math.round(player.superCritChance*100)+'%<br>Super-Crit Power: '+Math.round(player.superCritPower*100)+'%<br>Goo: '+Math.round(player.goo*100)+'%<br>Flame Pollen: '+Math.round(player.flamePollen*100)+'%<br>Flame Life: '+Math.round(player.flameLife*100)+'%<br>Bubble Pollen: '+Math.round(player.bubblePollen*100)+'%<br>Pollen From Tools: '+Math.round(player.pollenFromTools*100)+'%<br>Pollen From Bees: '+Math.round(player.pollenFromBees*100)+'%<br>White Bomb Pollen: '+Math.round(player.whiteBombPollen*100)+'%<br>Red Bomb Pollen: '+Math.round(player.redBombPollen*100)+'%<br>Blue Bomb Pollen: '+Math.round(player.blueBombPollen*100)+'%<br>White Bee Attack: '+player.whiteBeeAttack+'<br>Blue Bee Attack: '+player.blueBeeAttack+'<br>Red Bee Attack: '+player.redBeeAttack+'<br>Bee Attack Multiplier: '+Math.round(player.beeAttack*100)+'%<br>Honey From Tokens: '+Math.round(player.honeyFromTokens*100)+'%<br>Red Bee Ability Rate: '+Math.round(player.redBeeAbilityRate*100)+'%<br>Blue Bee Ability Rate: '+Math.round(player.blueBeeAbilityRate*100)+'%<br>White Bee Ability Rate: '+Math.round(player.whiteBeeAbilityRate*100)+'%<br>Bee Movespeed: '+Math.round(player.beeSpeed*100)+'%<br>Bee Energy: '+Math.round(player.beeEnergy*100)+'%<br>Honey At Hive: '+Math.round(player.honeyAtHive*100)+'%<br>Honey Per Pollen: '+Math.round(player.honeyPerPollen*100)+'%<br>Loot Luck: '+Math.round(player.lootLuck*100)+'%<br>Capacity Multiplier: '+Math.round(player.capacityMultiplier*100)+'%<br>Red Field Capacity: '+Math.round(player.redFieldCapacity*100)+'%<br>White Field Capacity: '+Math.round(player.whiteFieldCapacity*100)+'%<br>Blue Field Capacity: '+Math.round(player.blueFieldCapacity*100)+'%<br>Ability Duplication Chance: '+Math.round(player.abilityDuplicationChance*100+(player.hasDigitalBee&&player.extraInfo.drives.maxed?1:0))+'%<br>Bond From Treats: '+Math.round(player.bondFromTreats*100)+'%<br>Nectar Multiplier: '+Math.round(player.nectarMultiplier*100)+'%<br>Defense: '+Math.round(player.defense*100)+'%<br>Monster Respawn Rate: '+Math.round((1/player.monsterRespawnRate)*100)+'%<br><br>Convert Total: '+Math.round(player.convertTotal)+'<br>Attack Total: '+Math.round(player.attackTotal)
             }else if(currentPage===4){
                 
                 pages[4].innerHTML=player.beequipPageHTML
@@ -26930,9 +27376,16 @@ function BeeSwarmSimulator(DATA){
                         p=gear.tool[out.currentGear.tool].collectPattern
                     }
                     
+                    if(out.defaultStats.giantSwing && Math.random() < 0.25) {
+                        p = [[-2,-2],[-2,-1],[-2,0],[-2,1],[-2,2],[-1,-2],[-1,-1],[-1,0],[-1,1],[-1,2],[0,-2],[0,-1],[0,0],[0,1],[0,2],[1,-2],[1,-1],[1,0],[1,1],[1,2],[2,-2],[2,-1],[2,0],[2,1],[2,2]];
+                    }
+                    let swingAmount = gear.tool[out.currentGear.tool].collectAmount;
+                    if(out.defaultStats.criticalHarvest && Math.random() < 0.05) {
+                        swingAmount *= 5;
+                    }
                     arr=p.slice()
                     
-                    collectPollen({x:player.flowerIn.x,z:player.flowerIn.z,pattern:p,amount:gear.tool[out.currentGear.tool].collectAmount,yOffset:1.5,stackHeight:0.75,isGummyBaller:out.currentGear.tool==='gummyBaller',multiplier:player.pollenFromTools})
+                    collectPollen({x:player.flowerIn.x,z:player.flowerIn.z,pattern:p,amount:swingAmount,yOffset:1.5,stackHeight:0.75,isGummyBaller:out.currentGear.tool==='gummyBaller',multiplier:player.pollenFromTools})
                     
                 }
                 
@@ -29310,6 +29763,7 @@ function BeeSwarmSimulator(DATA){
                 
                 28.25,3.66,-17.25,0,0,0.875,0.5,n,n,n,-1.5,-1.5,0,
                 28.25,3.64,-19.25,0,0,0,0.625,n,n,n,-1.5,-1.5,0,
+                48,2.6,-3.8,0,0,0.125,0.375,n,n,n,-3.5,-3.5,0,
             ]
             
             if(isBeesmas&&player.body.position.x>-17-10&&player.body.position.x<-17+40&&player.body.position.z<40||player.currentNPC){
@@ -33511,6 +33965,7 @@ function BeeSwarmSimulator(DATA){
         save.owned={}
         save.amountPurchased={}
         save.currentGear=player.currentGear
+        save.gearEnchants=player.gearEnchants || {}
         save.effects=player.effects.slice()
         save.passives={}
         save.NPCs={}
@@ -33541,9 +33996,9 @@ function BeeSwarmSimulator(DATA){
                 save.stats[i]=player.stats[i]
         }
 
-        for(let i in hotbarSlots){
+        for(let i=0; i<hotbarSlots.length; i++){
             
-            save.hotbar.push(hotbarSlots[i].itemType)
+            save.hotbar.push(hotbarSlots[i].itemType || false)
         }
 
         let passives=[]
@@ -33732,120 +34187,143 @@ function BeeSwarmSimulator(DATA){
             return
         }
         
-        player.extraInfo=save.extraInfo
-        player.honey=save.honey
-        player.pollen=save.pollen
-        player.currentGear=save.currentGear
-        for(let i in player.currentGear)if(i.indexOf('Snail')>-1){player.currentGear[i.replaceAll('Snail','Shell')]=player.currentGear[i].slice();delete player.currentGear[i]}
+        player.extraInfo=save.extraInfo || {}
+        player.honey=save.honey || 0
+        player.pollen=save.pollen || 0
+        player.currentGear=save.currentGear || {}
+        player.gearEnchants=save.gearEnchants || {}
+        for(let i in player.currentGear) if(i && i.indexOf('Snail')>-1){player.currentGear[i.replaceAll('Snail','Shell')]=player.currentGear[i].slice();delete player.currentGear[i]}
         player.hive=[[]]
-        player.quests=save.quests
-        player.isCrafting=save.isCrafting
-        TIME=save.TIME
+        player.quests=save.quests || []
+        player.isCrafting=save.isCrafting || false
+        TIME=save.TIME || 0
         player.hiveBalloon=save.hiveBalloon
-        player.discoveredBees=save.discoveredBees
-        player.discoveredGifteds=save.discoveredGifteds
+        player.discoveredBees=save.discoveredBees || []
+        player.discoveredGifteds=save.discoveredGifteds || []
 
-        for(let i in save.stats){
-
-            player.stats[i]=save.stats[i]
+        if (save.stats) {
+            for(let i in save.stats){
+                player.stats[i]=save.stats[i]
+            }
         }
 
         let activeQuests={},activeQuests_beesmas={}
 
-        for(let i in player.quests){
-            if(!NPCs[player.quests[i].NPC]){
-                player.quests.splice(i-0,1)
-                continue
-            }
-            if(player.quests[i].isBeesmasQuest)
-                activeQuests_beesmas[player.quests[i].NPC]=true
-            else
-                activeQuests[player.quests[i].NPC]=true
-        }
-        for(let i in save.items){
-            let s=save.items[i],isA=typeof s==='object'
-            items[i].amount=isA?save.items[i][0]:s
-            items[i].cooldown=isA?save.items[i][1]*1000:0
-        }
-
-        for(let i in shops){
-
-            if(shops[i].isBeesmasTree)continue
-            
-            for(let j in shops[i].items){
-                
-                shops[i].items[j].owned=save.owned[shops[i].items[j].name]
-
-                if(shops[i].items[j].slot==='item'&&!shops[i].items[j].owned) shops[i].items[j].amountPurchased=save.amountPurchased[shops[i].items[j].name]|0
+        if (player.quests && Array.isArray(player.quests)) {
+            for(let i = player.quests.length - 1; i >= 0; i--){
+                if(!player.quests[i] || !NPCs || !NPCs[player.quests[i].NPC]){
+                    player.quests.splice(i,1)
+                    continue
+                }
+                if(player.quests[i].isBeesmasQuest)
+                    activeQuests_beesmas[player.quests[i].NPC]=true
+                else
+                    activeQuests[player.quests[i].NPC]=true
             }
         }
 
-        for(let y in save.hive){
-            
-            if(!player.hive[y]) player.hive[y]=[]
-            
-            for(let x in save.hive[y]){
-                
-                let h=save.hive[y][x]
-                
-                player.addSlot(h.type,h.gifted,h.bond,h.mutation,h.radioactive,h.beequip)
+        if (save.items) {
+            for(let i in save.items){
+                if (!items[i]) continue
+                let s=save.items[i],isA=typeof s==='object'
+                items[i].amount=isA?save.items[i][0]:s
+                items[i].cooldown=isA?save.items[i][1]*1000:0
             }
         }
 
-        for(let i in effects){
-            
-            if(save.passives[i]){
-                
-                effects[i].startVal=save.passives[i].startVal
-                effects[i].currentCooldown=save.passives[i].currentCooldown
+        if (shops && save.owned) {
+            for(let i in shops){
+                if(shops[i].isBeesmasTree)continue
+                for(let j in shops[i].items){
+                    if (shops[i].items[j]) {
+                        shops[i].items[j].owned=save.owned[shops[i].items[j].name]
+                        if(shops[i].items[j].slot==='item'&&!shops[i].items[j].owned && save.amountPurchased) {
+                            shops[i].items[j].amountPurchased=save.amountPurchased[shops[i].items[j].name]|0
+                        }
+                    }
+                }
             }
         }
 
-        for(let i in save.hotbar){
-            
-            if(save.hotbar[i]){
-                
-                player.itemDragging=save.hotbar[i]
-                hotbarSlots[i].onmousedown()
+        if (save.hive) {
+            for(let y in save.hive){
+                if(!player.hive[y]) player.hive[y]=[]
+                for(let x in save.hive[y]){
+                    let h=save.hive[y][x]
+                    if (h) player.addSlot(h.type,h.gifted,h.bond,h.mutation,h.radioactive,h.beequip)
+                }
             }
+        }
+
+        if (save.passives && effects) {
+            for(let i in effects){
+                if(save.passives[i]){
+                    effects[i].startVal=save.passives[i].startVal
+                    effects[i].currentCooldown=save.passives[i].currentCooldown
+                }
+            }
+        }
+
+        if (save.hotbar && Array.isArray(save.hotbar)) {
+            for(let i=0; i<Math.min(save.hotbar.length, hotbarSlots.length); i++){
+                let itemName = save.hotbar[i]
+                if(itemName && items[itemName] && itemSVGCode[itemName] && hotbarSlots[i]){
+                    player.itemDragging=itemName
+                    try {
+                        if (typeof hotbarSlots[i].onmousedown === 'function') {
+                            hotbarSlots[i].onmousedown()
+                        }
+                    } catch(err) {
+                        console.warn("Hotbar slot restore error", err)
+                    }
+                }
+            }
+            player.itemDragging=false
         }
 
         player.updateInventory()
         player.updateGear()
         player.updateHive()
 
-        for(let i in save.effects){
-            
-            if(save.effects[i].cooldown===null) save.effects[i].cooldown=Infinity
-
-            player.effects.push(save.effects[i])
-            effects[save.effects[i].type].svg.style.display='inline'
+        if (save.effects) {
+            for(let i in save.effects){
+                if (!save.effects[i]) continue
+                if(save.effects[i].cooldown===null) save.effects[i].cooldown=Infinity
+                player.effects.push(save.effects[i])
+                if (effects && effects[save.effects[i].type] && effects[save.effects[i].type].svg) {
+                    effects[save.effects[i].type].svg.style.display='inline'
+                }
+            }
         }
 
-        for(let i in NPCs){
-            
-            if(i==='roboBear'||!save.NPCs[i]) continue
-            
-            NPCs[i].dialogueIndex=save.NPCs[i].index
-            NPCs[i].dialogueIndex_beesmas=save.NPCs[i].index_beesmas||0
-            NPCs[i].dialogueIndex_savable=save.NPCs[i].index
-            NPCs[i].dialogueIndex_beesmas_savable=save.NPCs[i].index_beesmas||0
-            NPCs[i].seed=save.NPCs[i].seed
-            NPCs[i].portionsDone=save.NPCs[i].portionsDone
-            NPCs[i].translatored=save.NPCs[i].translatored
+        if (save.NPCs && NPCs) {
+            for(let i in NPCs){
+                if(i==='roboBear'||!save.NPCs[i]) continue
+                NPCs[i].dialogueIndex=save.NPCs[i].index
+                NPCs[i].dialogueIndex_beesmas=save.NPCs[i].index_beesmas||0
+                NPCs[i].dialogueIndex_savable=save.NPCs[i].index
+                NPCs[i].dialogueIndex_beesmas_savable=save.NPCs[i].index_beesmas||0
+                NPCs[i].seed=save.NPCs[i].seed
+                NPCs[i].portionsDone=save.NPCs[i].portionsDone
+                NPCs[i].translatored=save.NPCs[i].translatored
 
-            NPCs[i].activeQuest=activeQuests[i]
-            NPCs[i].activeQuest_beesmas=activeQuests_beesmas[i]
+                NPCs[i].activeQuest=activeQuests[i]
+                NPCs[i].activeQuest_beesmas=activeQuests_beesmas[i]
+            }
         }
 
-        for(let i in save.degration){
-
-            fieldInfo[i].degration=save.degration[i]
+        if (save.degration && fieldInfo) {
+            for(let i in save.degration){
+                if (fieldInfo[i]) fieldInfo[i].degration=save.degration[i]
+            }
         }
 
-        for(let i in save.planters){
-
-            objects.planters.push(new Planter(save.planters[i].type,save.planters[i].field,save.planters[i].x,save.planters[i].z,save.planters[i].growth,save.planters[i].glistering))
+        if (save.planters && objects && objects.planters) {
+            for(let i in save.planters){
+                if (save.planters[i]) {
+                    objects.planters.push(new Planter(save.planters[i].type,save.planters[i].field,save.planters[i].x,save.planters[i].z,save.planters[i].growth,save.planters[i].glistering))
+                }
+            }
         }
         
         if(isBeesmas){
@@ -34608,6 +35086,10 @@ function BeeSwarmSimulator(DATA){
         gl.vertexAttribPointer(glCache.token_vertPos,3,gl.FLOAT,gl.FLASE,20,0)
         gl.vertexAttribPointer(glCache.token_vertUV,2,gl.FLOAT,gl.FLASE,20,12)
         
+        if (items && items.enchantedCell) {
+            meshes.tokens.instanceData.push(48, 6.9 + Math.sin(TIME*2.5)*0.18, -3.8, TIME*1.2, items.enchantedCell.u, items.enchantedCell.v, 2.6, 1.35);
+        }
+        
         gl.bindBuffer(gl.ARRAY_BUFFER,meshes.tokens.instanceBuffer)
         gl.bufferData(gl.ARRAY_BUFFER,Float32Array.from(meshes.tokens.instanceData),gl.DYNAMIC_DRAW)
         
@@ -34705,6 +35187,17 @@ function BeeSwarmSimulator(DATA){
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,meshes.cylinder_explosion.indexBuffer)
         gl.vertexAttribPointer(glCache.explosion_vertPos,3,gl.FLOAT,gl.FLASE,12,0)
         
+        // Enchanted Cell Dispenser 3D model (located at 48, 2.6, -3.8)
+        meshes.cylinder_explosions.instanceData.push(48, 2.6, -3.8, 0.15, 0.55, 0.95, 1.0, 1.8, 0.9);
+        meshes.cylinder_explosions.instanceData.push(48, 3.5, -3.8, 0.08, 0.15, 0.35, 1.0, 1.2, 1.8);
+        meshes.cylinder_explosions.instanceData.push(48, 5.3, -3.8, 0.9, 0.7, 0.2, 1.0, 1.6, 0.4);
+        meshes.cylinder_explosions.instanceData.push(48, 5.6, -3.8, 0.3, 0.85, 1.0, 0.7 + Math.sin(TIME*3.5)*0.25, 1.3, 0.12);
+        meshes.cylinder_explosions.instanceData.push(46.9, 4.3, -4.9, 0.2, 0.7, 1.0, 1.0, 0.2, 2.8);
+        meshes.cylinder_explosions.instanceData.push(49.1, 4.3, -4.9, 0.2, 0.7, 1.0, 1.0, 0.2, 2.8);
+        meshes.cylinder_explosions.instanceData.push(46.9, 4.3, -2.7, 0.2, 0.7, 1.0, 1.0, 0.2, 2.8);
+        meshes.cylinder_explosions.instanceData.push(49.1, 4.3, -2.7, 0.2, 0.7, 1.0, 1.0, 0.2, 2.8);
+        meshes.cylinder_explosions.instanceData.push(48, 5.9, -3.8, 0.1, 0.4, 0.8, 0.95, 2.0, 0.3);
+
         gl.bindBuffer(gl.ARRAY_BUFFER,meshes.cylinder_explosions.instanceBuffer)
         gl.bufferData(gl.ARRAY_BUFFER,Float32Array.from(meshes.cylinder_explosions.instanceData),gl.DYNAMIC_DRAW)
         gl.vertexAttribPointer(glCache.explosion_instancePos,3,gl.FLOAT,gl.FLASE,36,0)

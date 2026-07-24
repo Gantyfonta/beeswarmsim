@@ -57,7 +57,7 @@ body{
         position:fixed;
         left:0;
         top:0;
-        z-index:-10;
+        z-index:0;
 	}
 	
 	div::-webkit-scrollbar{
@@ -242,58 +242,34 @@ body{
         display:inline;
     }
 
-/* Responsive GUI bounds to fit all screen viewports */
-#honeyAndPollenAmount {
-    left: 50% !important;
-    transform: translate(-50%, 0px) !important;
-    width: 600px !important;
-    max-width: 98vw !important;
-    z-index: 10 !important;
-}
+    #honeyAndPollenAmount {
+        z-index: 10 !important;
+        pointer-events: auto !important;
+    }
 
-#honeyAndPollenAmount svg {
-    width: 100% !important;
-    height: auto !important;
-    max-height: 35px !important;
-}
+    .hotbarSlot {
+        z-index: 10 !important;
+        pointer-events: auto !important;
+        cursor: pointer;
+    }
 
-.uiPage {
-    max-height: calc(100vh - 80px) !important;
-    max-width: calc(100vw - 10px) !important;
-    overflow-y: auto !important;
-    box-sizing: border-box !important;
-}
+    .autoHotbarButton {
+        z-index: 10 !important;
+        pointer-events: auto !important;
+        cursor: pointer;
+    }
 
-#mainMenu, #mainSelectMenu, #mainInfoMenu {
-    max-width: 95vw !important;
-    max-height: 90vh !important;
-    overflow-y: auto !important;
-    box-sizing: border-box !important;
-}
+    .uiPage {
+        z-index: 10 !important;
+        pointer-events: auto !important;
+    }
 
-#shopUI {
-    max-width: 100vw !important;
-    max-height: 100vh !important;
-}
+    #abilityUI {
+        z-index: 10 !important;
+        pointer-events: auto !important;
+    }
 
-#blenderMenu, #shrineMenu, #roboMenu, #amuletUI, #howManyToFeed {
-    max-width: 95vw !important;
-    max-height: 90vh !important;
-    overflow-y: auto !important;
-    box-sizing: border-box !important;
-}
-
-#dialogueBox {
-    max-width: 92vw !important;
-    box-sizing: border-box !important;
-}
-
-#actionWarning {
-    max-width: 92vw !important;
-    box-sizing: border-box !important;
-}
-
-.hotbarSlot {
-    max-width: 12vw !important;
-    max-height: 12vw !important;
-}
+    #roboQuestMenu {
+        z-index: 10 !important;
+        pointer-events: auto !important;
+    }
